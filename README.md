@@ -23,7 +23,7 @@ tryexpect will do its best to terminate itself in the same way as the target.
 ttyspawn
 ========
 
-This is similar to pexpect's ```fdspawn``` but will spawn a new tty to which
+```ttyspawn``` is similar to pexpect's ```fdspawn``` but will spawn a new tty to which
 another program can talk. This is usefull for example when interacting with
 programs running under ```gdb --tty=X```
 

@@ -1,6 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# The MIT License (MIT)
+
+# Copyright (c) 2014 wapiflapi
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import os
 import sys
 import pty
@@ -51,7 +73,8 @@ class promptMixin(object):
 
         if sys.stdout.isatty():
             if print_escape_character:
-                sys.stdout.write("Escape character is '^%c'\r\n" % (ord(escape_character) + 64))
+                sys.stdout.write("Escape character is '^%c'\r\n" % (
+                        ord(escape_character) + 64))
             if prompt is not None:
                 sys.stdout.write(prompt)
 
@@ -80,12 +103,14 @@ class promptMixin(object):
             # Careful now, self might not have signal/exit status.
             if getattr(self, "signalstatus") is not None:
                 sys.stdout.write("Program received signal %d. (%s)\r\n" % (
-                        self.signalstatus, SIGNALS.get(self.signalstatus, "Unknown")))
+                        self.signalstatus,
+                        SIGNALS.get(self.signalstatus, "Unknown")))
                 if exitwithprogram:
                     sys.stdout.write("Killing ourself with same signal.\r\n")
                     os.kill(os.getpid(), self.signalstatus)
             elif getattr(self, "exitstatus") is not None:
-                sys.stdout.write("Program exited with status %d.\r\n" % (self.exitstatus))
+                sys.stdout.write("Program exited with status %d.\r\n" % (
+                        self.exitstatus))
                 if exitwithprogram:
                     sys.stdout.write("Exiting with same status.\r\n")
                     exit(self.exitstatus)
@@ -115,7 +140,8 @@ class ttyspawn(fdspawn):
         self.master, self.slave = pty.openpty()
         if verbose:
             sys.stderr.write("New tty spawned at %s\r\n" % self.ttyname())
-        fdspawn.__init__(self, self.master, args, timeout, maxread, searchwindowsize, logfile)
+        fdspawn.__init__(self, self.master, args, timeout,
+                         maxread, searchwindowsize, logfile)
 
     def ttyname(self):
         return os.ttyname(self.slave)
@@ -127,7 +153,8 @@ class setup(object):
     It can be used to switch between calling a program directly or setting up a
     TTY, or to pass options to pexepect.
     argparse's parser is available through the .parser attribute and you can add
-    any options you want before calling .target().
+    any options you want before calling .target(), After the call to .taarget()
+    arguments will we available in .args.
     '''
 
     def __init__(self, command=None, args=[], timeout=30, maxread=2000,
@@ -139,7 +166,7 @@ class setup(object):
         options = self.parser.add_argument_group('binexpect options')
 
         options.add_argument("-t", "--tty", action="store_true",
-                             help="Spawn a new TTY and interact with that "
+                             help="Spawn a new TTY and interact with it "
                              "instead of spawning the process.")
         options.add_argument("-q", "--quiet", dest="verbose", action="store_false",
                              help="Don't print information such as the TTY's name.")
@@ -153,10 +180,11 @@ class setup(object):
                              "of bytes that Pexpect will try to read from a TTY at one time. "
                              "Setting the maxread size to 1 will turn off buffering.")
         options.add_argument("--search-window-size", type=int, default=searchwindowsize,
-                             help="This sets the how far back in the incoming seach buffer "
-                             "Pexpect will search for pattern matches.")
+                             help="This sets how far back in the incoming search buffer "
+                             "pexpect will search for pattern matches.")
         options.add_argument("--logfile", type=argparse.FileType("w"), default=logfile,
-                             help="All input and output will be copied to the given file.")
+                             help="Pexpect will be asked to copy all input and output"
+                             "to the given file.")
         options.add_argument("--cwd", default=cwd,
                              help="Sets the child process' current working directory.")
         options.add_argument("--env", default=env,
@@ -174,12 +202,14 @@ class setup(object):
         self.args = self.parser.parse_args(*args)
 
         if self.args.tty:
-            return ttyspawn(verbose=self.args.verbose, args=self.args.args, timeout=self.args.timeout,
-                            maxread=self.args.maxread, searchwindowsize=self.args.search_window_size,
+            return ttyspawn(verbose=self.args.verbose, args=self.args.args,
+                            timeout=self.args.timeout, maxread=self.args.maxread,
+                            searchwindowsize=self.args.search_window_size,
                             logfile=self.args.logfile)
         else:
-            return spawn(command=self.args.command, args=self.args.args, timeout=self.args.timeout,
-                         maxread=self.args.maxread, searchwindowsize=self.args.search_window_size,
+            return spawn(command=self.args.command, args=self.args.args,
+                         timeout=self.args.timeout, maxread=self.args.maxread,
+                         searchwindowsize=self.args.search_window_size,
                          logfile=self.args.logfile, cwd=self.args.cwd,
                          env=self.args.env, ignore_sighup=self.args.ignore_sighup)
 
@@ -195,7 +225,7 @@ a new TTY to which other programs can attach, for example gdb --tty=X.
 This is really intended to be used as a module not as CLI.""",
                                      epilog="""
 Written by wapiflapi@yahoo.fr, please feel free to send any comments or
-bug-reports you might have.""")
+bug-reports you might have. Hosted on github.com/wapiflapi/binexpect""")
 
     parser.add_argument("--logfile", "-l", metavar="FILE",
                         type=argparse.FileType("wb"), default=None,
