@@ -68,8 +68,13 @@ class promptMixin(object):
 
     def prompt(self, prompt=None, escape_character=chr(29),
                input_filter=None, output_filter=None,
-               print_escape_character=True):
+               echo=True,
+               print_escape_character=True,
+               exitwithprogram=True):
         '''Calls self.interact() after printing a prompt.'''
+
+        if echo is not None:
+            self.setecho(echo)
 
         if sys.stdout.isatty():
             if print_escape_character:
@@ -81,6 +86,24 @@ class promptMixin(object):
         self.interact(escape_character=escape_character,
                       input_filter=input_filter,
                       output_filter=output_filter)
+
+        if self.isalive():
+            return
+
+        # Careful now, self might not have signal/exit status.
+        if getattr(self, "signalstatus") is not None:
+            sys.stdout.write("Program received signal %d. (%s)\r\n" % (
+                    self.signalstatus,
+                    SIGNALS.get(self.signalstatus, "Unknown")))
+            if exitwithprogram:
+                sys.stdout.write("Killing ourself with same signal.\r\n")
+                os.kill(os.getpid(), self.signalstatus)
+        elif getattr(self, "exitstatus") is not None:
+            sys.stdout.write("Program exited with status %d.\r\n" % (
+                    self.exitstatus))
+            if exitwithprogram:
+                sys.stdout.write("Exiting with same status.\r\n")
+                exit(self.exitstatus)
 
 
     def tryexpect(self, pattern, timeout=None, searchwindowsize=None,
@@ -125,7 +148,7 @@ fdspawn = type("fdspawn", (fdspawn, binMixin, promptMixin), {})
 
 class ttyspawn(fdspawn):
     '''This is like pexpect.fdspawn, it provides a new tty to work with. This is
-    usefull for example when interacting with programs running under gdb --tty=X
+    useful for example when interacting with programs running under gdb --tty=X
     self.master and self.slave contain the file descriptors for the created tty.
     This class has not been tested on anything other than Linux & BSD.'''
 

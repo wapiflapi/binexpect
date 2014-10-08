@@ -1,6 +1,6 @@
 
 binexpect is a python module that monkeypatches pexpect and adds some features
-that are usefull when working with binary protocols and/or exploitation.
+that are useful when working with binary protocols and/or exploitation.
 
 binary sends
 ============
@@ -24,7 +24,7 @@ ttyspawn
 ========
 
 ```ttyspawn``` is similar to pexpect's ```fdspawn``` but will spawn a new tty to which
-another program can talk. This is usefull for example when interacting with
+another program can talk. This is useful for example when interacting with
 programs running under ```gdb --tty=X```
 
 setup
