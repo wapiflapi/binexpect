@@ -40,7 +40,6 @@ from fdpexpect import fdspawn
 SIGNALS = dict((getattr(signal, n), n)
                for n in dir(signal) if n.startswith('SIG') and '_' not in n)
 
-
 class binMixin(object):
     '''This MixIn adds support for raw binary comunications by escaping special
     characters in order to avoid TTY-controling sequences. This use the .send()
@@ -198,6 +197,10 @@ class setup(object):
         options.add_argument("--timeout", type=int, default=timeout,
                              help="If an expected message isn't received in TIMEOUT seconds "
                              "the target program will be considered terminated.")
+        options.add_argument("--delay-before-send", type=int, default=0,
+                             help="Introduces a delay before sending something to the target,"
+                             "this is usefull to overcome bugs when for example data is send"
+                             "before the target has a chance to set echo of or stuff like that.")
         options.add_argument("--maxread", type=int, default=maxread,
                              help="This sets the read buffer size. This is the maximum number "
                              "of bytes that Pexpect will try to read from a TTY at one time. "
@@ -216,6 +219,7 @@ class setup(object):
                              help="If set, this option will cause the child process will "
                              "ignore SIGHUP signals.")
 
+
     def target(self, *args):
 
         # Those options must be added last because they take the remaining arguments.
@@ -225,17 +229,19 @@ class setup(object):
         self.args = self.parser.parse_args(*args)
 
         if self.args.tty:
-            return ttyspawn(verbose=self.args.verbose, args=self.args.args,
-                            timeout=self.args.timeout, maxread=self.args.maxread,
-                            searchwindowsize=self.args.search_window_size,
-                            logfile=self.args.logfile)
+            target = ttyspawn(verbose=self.args.verbose, args=self.args.args,
+                              timeout=self.args.timeout, maxread=self.args.maxread,
+                              searchwindowsize=self.args.search_window_size,
+                              logfile=self.args.logfile)
         else:
-            return spawn(command=self.args.command, args=self.args.args,
-                         timeout=self.args.timeout, maxread=self.args.maxread,
-                         searchwindowsize=self.args.search_window_size,
-                         logfile=self.args.logfile, cwd=self.args.cwd,
-                         env=self.args.env, ignore_sighup=self.args.ignore_sighup)
+            target = spawn(command=self.args.command, args=self.args.args,
+                           timeout=self.args.timeout, maxread=self.args.maxread,
+                           searchwindowsize=self.args.search_window_size,
+                           logfile=self.args.logfile, cwd=self.args.cwd,
+                           env=self.args.env, ignore_sighup=self.args.ignore_sighup)
 
+        target.delaybeforesend = self.args.delay_before_send
+        return target
 
 if __name__ == '__main__':
     import argparse
