@@ -26,9 +26,12 @@
 import os
 import sys
 import pty
+import copy
+import termios
 import signal
-
 import argparse
+
+from contextlib import contextmanager
 
 import pexpect
 import fdpexpect
@@ -44,6 +47,39 @@ class binMixin(object):
     '''This MixIn adds support for raw binary comunications by escaping special
     characters in order to avoid TTY-controling sequences. This use the .send()
     and .sendline() methods of the base class.'''
+
+    def setnlcr(self):
+
+        # Indexes for termios list.
+        IFLAG, OFLAG, CFLAG, LFLAG, ISPEED, OSPEED, CC = range(7)
+
+        fd = self.fileno()
+        mode = termios.tcgetattr(fd)
+        self.oldmode = copy.deepcopy(mode)
+        self.oldcrlf = self.crlf
+        self.crlf = pexpect.spawn.crlf
+
+        mode[OFLAG] = mode[OFLAG] | termios.ONLCR
+        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
+
+    def setnonlcr(self):
+
+        # Indexes for termios list.
+        IFLAG, OFLAG, CFLAG, LFLAG, ISPEED, OSPEED, CC = range(7)
+
+        fd = self.fileno()
+        mode = termios.tcgetattr(fd)
+        self.oldmode = copy.deepcopy(mode)
+        self.oldcrlf = self.crlf
+        self.crlf = pexpect.spawn.crlf[:-1]
+
+        mode[OFLAG] = mode[OFLAG] & ~termios.ONLCR
+        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
+
+    def restoremode(self):
+        fd = self.fileno()
+        termios.tcsetattr(fd, termios.TCSADRAIN, self.oldmode)
+        self.crlf = self.oldcrlf
 
     def escape(self, s):
 
@@ -197,6 +233,9 @@ class setup(object):
         options.add_argument("--timeout", type=int, default=timeout,
                              help="If an expected message isn't received in TIMEOUT seconds "
                              "the target program will be considered terminated.")
+        options.add_argument("--nlcr", action='store_true',
+                             help="Don't try to deactivate NLCR on the tty. If set, this option"
+                             "will cause a '\n' outputed by the target to appear as '\r\n'.")
         options.add_argument("--delay-before-send", type=int, default=0,
                              help="Introduces a delay before sending something to the target,"
                              "this is usefull to overcome bugs when for example data is send"
@@ -240,6 +279,8 @@ class setup(object):
                            logfile=self.args.logfile, cwd=self.args.cwd,
                            env=self.args.env, ignore_sighup=self.args.ignore_sighup)
 
+        if not self.args.nlcr:
+            target.setnonlcr()
         target.delaybeforesend = self.args.delay_before_send
         return target
 
