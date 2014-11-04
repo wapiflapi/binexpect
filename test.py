@@ -6,7 +6,7 @@ import tty
 import sys
 
 def clear_line(msg=""):
-    sys.stdout.write("\033[2K%s" % msg)
+    sys.stdout.write("\x1b[0K%s" % msg)
     sys.stdout.flush()
 
 def rewind_line():
@@ -14,8 +14,16 @@ def rewind_line():
     sys.stdout.flush()
 
 def do_test(target, data):
+
+    data = bytearray(data)
+
+    if sys.version_info[0] == 2:
+        data = ''.join(map(chr, data))
+    else:
+        rep = data = bytes(data)
+
     target.sendbinline(data)
-    clear_line("Waiting for %s" % data[:32])
+    clear_line("Waiting for %r" % data[:32])
     target.expect_exact(data)
     rewind_line()
 
@@ -31,24 +39,18 @@ def run_tests(target):
     clear_line("[x] Testing single bytes.\n")
 
     for x in range(256):
-        do_test(target, bytes((x,)))
+        do_test(target, (x,))
 
     clear_line("[x] Testing single bytes in context.\n")
 
     for x in range(256):
-        # if x == 10:
-        #     continue
-        do_test(target, bytes((61, x, 61)))
+        do_test(target, (61, x, 61))
 
     clear_line("[x] Testing multiple bytes in context.\n")
 
     for x in range(256):
         for y in range(256):
-
-            # if x == 10 or y == 10:
-            #     continue
-
-            do_test(target, bytes((61, x, y, 61)))
+            do_test(target, (61, x, y, 61))
 
     clear_line()
 
