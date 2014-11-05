@@ -71,6 +71,11 @@ class binMixin(object):
     '''
 
     def setmode(self, fd, when, mode):
+        '''
+        Calls tcsetattr on the specified fd but also monkeypatches
+        pexpect's internal attributes according to the changes.
+        '''
+
         if mode[TLIST.OFLAG] & termios.ONLCR:
             self.crlf = pexpect.spawn.crlf
         else:
@@ -80,6 +85,11 @@ class binMixin(object):
 
     @contextmanager
     def changemode(self, when=termios.TCSADRAIN):
+        '''
+        This contextmanager allows for easy modification of the underlying
+        TTY's attributes. A stack of previous modes is maintained.
+        '''
+
         if not hasattr(self, "oldmodes"):
             self.oldmodes = []
 
@@ -95,33 +105,55 @@ class binMixin(object):
             self.setmode(fd, when, mode)
 
     def restoremode(self, when=termios.TCSADRAIN):
+        '''
+        Restores the previous mode by retrieving it
+        from the stack maintained by changemode.
+        '''
+
         fd = self.fileno()
         mode = self.oldmodes.pop()
         if mode is not None:
             self.setmode(fd, when, mode)
 
     def setnlcr(self):
+        '''Sets NLCR in the underlying TTY's output flags.'''
         with self.changemode() as mode:
             mode[TLIST.OFLAG] = mode[TLIST.OFLAG] | termios.ONLCR
 
     def setnonlcr(self):
+        '''Clears NLCR in the underlying TTY's output flags.'''
         with self.changemode() as mode:
             mode[TLIST.OFLAG] = mode[TLIST.OFLAG] & ~termios.ONLCR
 
     def escape(self, s):
+        '''
+        Escapes a string so that it can be transmitted 'as is'
+        on a TTY without the need to activate raw mode.
+        '''
 
         escaped = bytearray(len(s) * 2)
 
         for i, c in enumerate(s):
+            # Some background:
+            # According to ASCCI 16 is DLE (data link escape) which might
+            # make sense. Except the thing is I mistyped it as 0x16 one
+            # day and things sudently started to work. So, please don't
+            # touch this unless you know what you are doing more than me.
+            #
+            # For the reccord 0x16 is Synchronous Idle (SYN) which should
+            # have nothing to do with escaping stuff. In EBCDIC 0x16 is ^v,
+            # and is used to type strange characters in a shell.
             escaped[i * 2] = 0x16
             escaped[i * 2 + 1] = c if isinstance(c, int) else ord(c)
 
         return bytes(escaped)
 
     def sendbin(self, s):
+        '''Like send but escapes everything to ensure it is send raw.'''
         return self.send(self.escape(s))
 
     def sendbinline(self, s=''):
+        '''Like sendline but escapes everything to ensure it is send raw.'''
         return self.sendline(self.escape(s))
 
 
