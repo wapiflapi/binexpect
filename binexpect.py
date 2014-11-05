@@ -27,9 +27,11 @@ import os
 import sys
 import pty
 import copy
+import shlex
 import termios
 import signal
 import argparse
+import subprocess
 
 from contextlib import contextmanager
 
@@ -43,10 +45,26 @@ from fdpexpect import fdspawn
 SIGNALS = dict((getattr(signal, n), n)
                for n in dir(signal) if n.startswith('SIG') and '_' not in n)
 
+def spawn_terminal(terminal, *cmdline):
+    '''
+    There doesn't seem to be a portable way of starting a terminal.
+    This works for me =)
+    '''
+
+    cmd = shlex.split(terminal)
+    if len(cmd) == 1:
+        cmd.append("-e")
+    cmd.extend(cmdline)
+
+    subprocess.call(cmd, stdin=None, stdout=None, stderr=None,
+                    close_fds=True, shell=False)
+
 class binMixin(object):
-    '''This MixIn adds support for raw binary comunications by escaping special
+    '''
+    This MixIn adds support for raw binary comunications by escaping special
     characters in order to avoid TTY-controling sequences. This use the .send()
-    and .sendline() methods of the base class.'''
+    and .sendline() methods of the base class.
+    '''
 
     def setnlcr(self):
 
@@ -99,7 +117,7 @@ class binMixin(object):
 
 
 class promptMixin(object):
-    '''This MixIn allows to print a prompt when interacting with a target'''
+    '''This MixIn allows to print a prompt when interacting with a target.'''
 
     def prompt(self, prompt=None, escape_character=chr(29),
                input_filter=None, output_filter=None,
@@ -182,18 +200,22 @@ fdspawn = type("fdspawn", (fdspawn, binMixin, promptMixin), {})
 
 
 class ttyspawn(fdspawn):
-    '''This is like pexpect.fdspawn, it provides a new tty to work with. This is
+    '''
+    This is like pexpect.fdspawn, it provides a new tty to work with. This is
     useful for example when interacting with programs running under gdb --tty=X
     self.master and self.slave contain the file descriptors for the created tty.
-    This class has not been tested on anything other than Linux & BSD.'''
+    This class has not been tested on anything other than Linux & BSD.
+    '''
 
     # Ok, I have no idea why this would take args, but hey lets just proxy this shit.
     def __init__(self, verbose=False, args=[], timeout=30,
                  maxread=2000, searchwindowsize=None, logfile=None):
-        '''Often a new tty is created to allow for interacton by another program,
+        '''
+        Often a new tty is created to allow for interacton by another program,
         for those cases verbose can be set to True in order to have the tty's name
         be automatically printed to stderr. The other agruments are identical to
-        those of fdspawn().'''
+        those of fdspawn().
+        '''
 
         self.master, self.slave = pty.openpty()
         if verbose:
@@ -223,9 +245,15 @@ class setup(object):
 
         options = self.parser.add_argument_group('binexpect options')
 
-        options.add_argument("-t", "--tty", action="store_true",
-                             help="Spawn a new TTY and interact with it "
-                             "instead of spawning the process.")
+        action = options.add_mutually_exclusive_group()
+
+        action.add_argument("-t", "--tty", action="store_true",
+                            help="Spawn a new TTY and interact with it "
+                            "instead of spawning the process.")
+        action.add_argument("-g", "--gdb", action="store_true",
+                            help="Spawn a new new terminal running a gdb "
+                            "instance on the target.")
+
         options.add_argument("-q", "--quiet", dest="verbose", action="store_false",
                              help="Don't print information such as the TTY's name.")
 
@@ -234,7 +262,7 @@ class setup(object):
                              help="If an expected message isn't received in TIMEOUT seconds "
                              "the target program will be considered terminated.")
         options.add_argument("--nlcr", action='store_true',
-                             help="Don't try to deactivate NLCR on the tty. If set, this option"
+                             help="Don't try to deactivate NLCR on the tty. If set, this option "
                              "will cause a '\n' outputed by the target to appear as '\r\n'.")
         options.add_argument("--delay-before-send", type=int, default=0,
                              help="Introduces a delay before sending something to the target,"
@@ -257,7 +285,10 @@ class setup(object):
         options.add_argument("--ignore-sighup", action="store_true", default=ignore_sighup,
                              help="If set, this option will cause the child process will "
                              "ignore SIGHUP signals.")
-
+        options.add_argument("--terminal", default=os.getenv("TERMINAL", "x-terminal-emulator"),
+                             help="specify the terminal to use, by default -e will be used "
+                             "to pass the arguments but if options are already present it "
+                             "will not be added.")
 
     def target(self, *args):
 
@@ -267,11 +298,14 @@ class setup(object):
 
         self.args = self.parser.parse_args(*args)
 
-        if self.args.tty:
+        if self.args.tty or self.args.gdb:
             target = ttyspawn(verbose=self.args.verbose, args=self.args.args,
                               timeout=self.args.timeout, maxread=self.args.maxread,
                               searchwindowsize=self.args.search_window_size,
                               logfile=self.args.logfile)
+            if self.args.gdb:
+                binary = shlex.split(self.args.command)[0]
+                spawn_terminal(self.args.terminal, "gdb", binary, "--tty", target.ttyname())
         else:
             target = spawn(command=self.args.command, args=self.args.args,
                            timeout=self.args.timeout, maxread=self.args.maxread,
