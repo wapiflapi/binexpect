@@ -45,6 +45,10 @@ from fdpexpect import fdspawn
 SIGNALS = dict((getattr(signal, n), n)
                for n in dir(signal) if n.startswith('SIG') and '_' not in n)
 
+# Indexes for termios list.
+class TLIST(object):
+    IFLAG, OFLAG, CFLAG, LFLAG, ISPEED, OSPEED, CC = range(7)
+
 def spawn_terminal(terminal, *cmdline):
     '''
     There doesn't seem to be a portable way of starting a terminal.
@@ -66,38 +70,43 @@ class binMixin(object):
     and .sendline() methods of the base class.
     '''
 
-    def setnlcr(self):
+    def setmode(self, fd, when, mode):
+        if mode[TLIST.OFLAG] & termios.ONLCR:
+            self.crlf = pexpect.spawn.crlf
+        else:
+            self.crlf = pexpect.spawn.crlf[-1]
 
-        # Indexes for termios list.
-        IFLAG, OFLAG, CFLAG, LFLAG, ISPEED, OSPEED, CC = range(7)
+        termios.tcsetattr(fd, when, mode)
+
+    @contextmanager
+    def changemode(self, when=termios.TCSADRAIN):
+        if not hasattr(self, "oldmodes"):
+            self.oldmodes = []
 
         fd = self.fileno()
         mode = termios.tcgetattr(fd)
-        self.oldmode = copy.deepcopy(mode)
-        self.oldcrlf = self.crlf
-        self.crlf = pexpect.spawn.crlf
+        self.oldmodes.append(copy.deepcopy(mode))
 
-        mode[OFLAG] = mode[OFLAG] | termios.ONLCR
-        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
+        yield mode # will be modified by user.
+
+        if mode == self.oldmodes[-1]:
+            self.oldmodes[-1] == None
+        else:
+            self.setmode(fd, when, mode)
+
+    def restoremode(self, when=termios.TCSADRAIN):
+        fd = self.fileno()
+        mode = self.oldmodes.pop()
+        if mode is not None:
+            self.setmode(fd, when, mode)
+
+    def setnlcr(self):
+        with self.changemode() as mode:
+            mode[TLIST.OFLAG] = mode[TLIST.OFLAG] | termios.ONLCR
 
     def setnonlcr(self):
-
-        # Indexes for termios list.
-        IFLAG, OFLAG, CFLAG, LFLAG, ISPEED, OSPEED, CC = range(7)
-
-        fd = self.fileno()
-        mode = termios.tcgetattr(fd)
-        self.oldmode = copy.deepcopy(mode)
-        self.oldcrlf = self.crlf
-        self.crlf = pexpect.spawn.crlf[:-1]
-
-        mode[OFLAG] = mode[OFLAG] & ~termios.ONLCR
-        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
-
-    def restoremode(self):
-        fd = self.fileno()
-        termios.tcsetattr(fd, termios.TCSADRAIN, self.oldmode)
-        self.crlf = self.oldcrlf
+        with self.changemode() as mode:
+            mode[TLIST.OFLAG] = mode[TLIST.OFLAG] & ~termios.ONLCR
 
     def escape(self, s):
 
@@ -126,8 +135,14 @@ class promptMixin(object):
                exitwithprogram=True):
         '''Calls self.interact() after printing a prompt.'''
 
+        oldecho = self.getecho()
         if echo is not None:
             self.setecho(echo)
+
+        # If this is binMixin we are nice.
+        # We temporarily activate nlcr on behalf of the user.
+        binmixin = isinstance(self, binMixin)
+        if binmixin: self.setnlcr()
 
         if sys.stdout.isatty():
             if print_escape_character:
@@ -141,6 +156,10 @@ class promptMixin(object):
                       output_filter=output_filter)
 
         if self.isalive():
+            # Our job is done, cleanup and getout.
+            if binmixin: self.restoremode()
+            if echo is not None and echo != oldecho:
+                self.setecho(oldecho)
             return
 
         # Careful now, self might not have signal/exit status.
