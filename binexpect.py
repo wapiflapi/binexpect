@@ -135,14 +135,15 @@ class binMixin(object):
 
         for i, c in enumerate(s):
             # Some background:
-            # According to ASCCI 16 is DLE (data link escape) which might
+            # According to ASCCI 16 is DLE (data link escape) which would
             # make sense. Except the thing is I mistyped it as 0x16 one
             # day and things sudently started to work. So, please don't
             # touch this unless you know what you are doing more than me.
             #
             # For the reccord 0x16 is Synchronous Idle (SYN) which should
-            # have nothing to do with escaping stuff. In EBCDIC 0x16 is ^v,
-            # and is used to type strange characters in a shell.
+            # have nothing to do with escaping stuff. In caret notation
+            # 0x16 is ^v and that is used to type strange characters in a
+            # shell so I guess it *kinda* makes sense but I have no idea why.
             escaped[i * 2] = 0x16
             escaped[i * 2 + 1] = c if isinstance(c, int) else ord(c)
 
@@ -315,7 +316,7 @@ class setup(object):
         options.add_argument("--nlcr", action='store_true',
                              help="Don't try to deactivate NLCR on the tty. If set, this option "
                              "will cause a '\n' outputed by the target to appear as '\r\n'.")
-        options.add_argument("--delay-before-send", type=int, default=0,
+        options.add_argument("--delay-before-send", type=float, default=0,
                              help="Introduces a delay before sending something to the target,"
                              "this is usefull to overcome bugs when for example data is send"
                              "before the target has a chance to set echo of or stuff like that.")
@@ -326,7 +327,7 @@ class setup(object):
         options.add_argument("--search-window-size", type=int, default=searchwindowsize,
                              help="This sets how far back in the incoming search buffer "
                              "pexpect will search for pattern matches.")
-        options.add_argument("--logfile", type=argparse.FileType("w"), default=logfile,
+        options.add_argument("--logfile", type=argparse.FileType("wb"), default=logfile,
                              help="Pexpect will be asked to copy all input and output"
                              "to the given file.")
         options.add_argument("--cwd", default=cwd,
