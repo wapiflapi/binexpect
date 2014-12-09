@@ -49,6 +49,27 @@ SIGNALS = dict((getattr(signal, n), n)
 class TLIST(object):
     IFLAG, OFLAG, CFLAG, LFLAG, ISPEED, OSPEED, CC = range(7)
 
+
+splash = '''
+      ▄▄▄·▄▄▌ ▐ ▄▌ ▐ ▄ ▄▄▄ .·▄▄▄▄      ▄• ▄▌.▄▄ · ▪   ▐ ▄  ▄▄ •
+     ▐█ ▄███· █▌▐█•█▌▐█▀▄.▀·██▪ ██     █▪██▌▐█ ▀. ██ •█▌▐█▐█ ▀ ▪
+      ██▀·██▪▐█▐▐▌▐█▐▐▌▐▀▀▪▄▐█· ▐█▌    █▌▐█▌▄▀▀▀█▄▐█·▐█▐▐▌▄█ ▀█▄
+     ▐█▪·•▐█▌██▐█▌██▐█▌▐█▄▄▌██. ██     ▐█▄█▌▐█▄▪▐█▐█▌██▐█▌▐█▄▪▐█
+     .▀    ▀▀▀▀ ▀▪▀▀ █▪ ▀▀▀ ▀▀▀▀▀•      ▀▀▀  ▀▀▀▀ ▀▀▀▀▀ █▪·▀▀▀▀
+ ▄▄▄▄    ██▓ ███▄    █ ▓█████ ▒██   ██▒ ██▓███  ▓█████  ▄████▄  ▄▄▄█████▓
+▓█████▄ ▓██▒ ██ ▀█   █ ▓█   ▀ ▒▒ █ █ ▒░▓██░  ██▒▓█   ▀ ▒██▀ ▀█  ▓  ██▒ ▓▒
+▒██▒ ▄██▒██▒▓██  ▀█ ██▒▒███   ░░  █   ░▓██░ ██▓▒▒███   ▒▓█    ▄ ▒ ▓██░ ▒░
+▒██░█▀  ░██░▓██▒  ▐▌██▒▒▓█  ▄  ░ █ █ ▒ ▒██▄█▓▒ ▒▒▓█  ▄ ▒▓▓▄ ▄██▒░ ▓██▓ ░
+░▓█  ▀█▓░██░▒██░   ▓██░░▒████▒▒██▒ ▒██▒▒██▒ ░  ░░▒████▒▒ ▓███▀ ░  ▒██▒ ░
+░▒▓███▀▒░▓  ░ ▒░   ▒ ▒ ░░ ▒░ ░▒▒ ░ ░▓ ░▒▓▒░ ░  ░░░ ▒░ ░░ ░▒ ▒  ░  ▒ ░░
+▒░▒   ░  ▒ ░░ ░░   ░ ▒░ ░ ░  ░░░   ░▒ ░░▒ ░      ░ ░  ░  ░  ▒       ░
+ ░    ░  ▒ ░   ░   ░ ░    ░    ░    ░  ░░          ░   ░          ░
+ ░       ░           ░    ░  ░ ░    ░              ░  ░░ ░ @wapiflapi
+------░------------------------------------------------░-----------------
+Powered by pexpect, works best with linux and gxf.
+-------------------------------------------------------------------------
+'''
+
 def spawn_terminal(terminal, *cmdline):
     '''
     There doesn't seem to be a portable way of starting a terminal.
@@ -210,6 +231,13 @@ class promptMixin(object):
                 sys.stdout.write("Exiting with same status.\r\n")
                 exit(self.exitstatus)
 
+    def pwned(self, *args, **kwargs):
+        '''Original idea by pwntools, like self.prompt() but more haxorish.'''
+
+        if sys.stdout.isatty():
+            sys.stdout.write(splash)
+        # We just pwned the thing. Don't let it kill us.
+        self.prompt(*args, exitwithprogram=False, **kwargs)
 
     def tryexpect(self, pattern, timeout=None, searchwindowsize=None,
                   exitwithprogram=True):
@@ -357,7 +385,7 @@ class setup(object):
                               logfile=self.args.logfile)
             if self.args.gdb:
                 binary = shlex.split(self.args.command)[0]
-                spawn_terminal(self.args.terminal, "gdb", binary, "--tty", target.ttyname())
+                spawn_terminal(self.args.terminal, "gdb", "-q", binary, "--tty", target.ttyname())
         else:
             target = spawn(command=self.args.command, args=self.args.args,
                            timeout=self.args.timeout, maxread=self.args.maxread,
