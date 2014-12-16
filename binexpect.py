@@ -81,8 +81,8 @@ def spawn_terminal(terminal, *cmdline):
         cmd.append("-e")
     cmd.extend(cmdline)
 
-    subprocess.call(cmd, stdin=None, stdout=None, stderr=None,
-                    close_fds=True, shell=False)
+    subprocess.Popen(cmd, stdin=None, stdout=None, stderr=None,
+                     close_fds=True, shell=False)
 
 class binMixin(object):
     '''
@@ -363,7 +363,7 @@ class setup(object):
         options.add_argument("--env", default=env,
                              help="Sets the child process' environement.")
         options.add_argument("--ignore-sighup", action="store_true", default=ignore_sighup,
-                             help="If set, this option will cause the child process will "
+                             help="If set, this option will cause the child process to "
                              "ignore SIGHUP signals.")
         options.add_argument("--terminal", default=os.getenv("TERMINAL", "x-terminal-emulator"),
                              help="specify the terminal to use, by default -e will be used "
