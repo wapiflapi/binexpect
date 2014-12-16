@@ -66,7 +66,7 @@ splash = '''
  ░    ░  ▒ ░   ░   ░ ░    ░    ░    ░  ░░          ░   ░          ░
  ░       ░           ░    ░  ░ ░    ░              ░  ░░ ░ @wapiflapi
 ------░------------------------------------------------░-----------------
-Powered by pexpect, works best with linux and gxf.
+- Powered by pexpect, works best with linux and gxf -
 -------------------------------------------------------------------------
 '''
 
@@ -369,6 +369,10 @@ class setup(object):
                              help="specify the terminal to use, by default -e will be used "
                              "to pass the arguments but if options are already present it "
                              "will not be added.")
+        options.add_argument("--writeback",
+                             help="If a TTY is opened its name and the target's "
+                             "arguments will be written to this file. This is mainly "
+                             "for interfacing with debugers.")
 
     def target(self, *args):
 
@@ -383,8 +387,14 @@ class setup(object):
                               timeout=self.args.timeout, maxread=self.args.maxread,
                               searchwindowsize=self.args.search_window_size,
                               logfile=self.args.logfile)
+
+            command = shlex.split(self.args.command)
+            binary, args = command[0], command[1:]
+
+            if self.args.writeback is not None:
+                with open(self.args.writeback, "w") as f:
+                    f.write("%s\x00%s" % (target.ttyname(), "\x00".join(args)))
             if self.args.gdb:
-                binary = shlex.split(self.args.command)[0]
                 spawn_terminal(self.args.terminal, "gdb", "-q", binary, "--tty", target.ttyname())
         else:
             target = spawn(command=self.args.command, args=self.args.args,
