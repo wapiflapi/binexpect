@@ -45,3 +45,10 @@ class ttyspawn(fdspawn):  # NOQA: N801
     def ttyname(self):
         """Return the name of the underlying TTY."""
         return os.ttyname(self.slave)
+
+    def setecho(self, echo):
+        """Mock setecho existance."""
+        sys.stderr.write(
+            "ttyspawn.setecho() is a no-op, echo is never fed back "
+            "to pexpect but it is always kept on in the TTY.\r\n"
+        )

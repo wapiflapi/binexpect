@@ -109,8 +109,7 @@ def test_target_basic_functionality(tty):
 
     setup = binexpect.cli.setup("cat")
     target = setup.target([] if not tty else ["--tty"])
-    if not tty:
-        target.setecho(False)
+    target.setecho(False)
 
     target.sendline(b"simple test")
     target.tryexpect(b"simple (.*)\n")
