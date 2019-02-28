@@ -4,8 +4,8 @@ import os
 import pty
 import sys
 
-from fdpexpect import fdspawn
 from pexpect import spawn
+from pexpect.fdpexpect import fdspawn
 
 from binexpect.mixins import BinMixin, PromptMixin
 

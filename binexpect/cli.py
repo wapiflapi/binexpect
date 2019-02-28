@@ -5,18 +5,16 @@ import argparse
 import os
 import shlex
 
-from pexpect import spawn
-
-from binexpect.patched import ttyspawn
+from binexpect.patched import spawn, ttyspawn
 from binexpect.terminal import spawn_terminal
 
 
-class setup(object):  # NOQA: N801
+class Target(object):  # NOQA: N801
     """
     This uses argparse to setup a sensible CLI to configure binexpect behavior.
 
     Among other things it allows switching between calling a program
-    directly or setting up a TTY, or to pass options to pexepect.
+    directly or setting up a TTY, or to pass options to expect.
 
     The instantiated object has the following useful attributes:
         parser: The argparse.ArgumentParser that will be used,
@@ -28,26 +26,41 @@ class setup(object):  # NOQA: N801
 
     def __init__(self, command=None, args=[], timeout=30, maxread=2000,
                  searchwindowsize=None, logfile=None, cwd=None, env=None,
-                 ignore_sighup=True):
-        """Set-up the argparse.ArgumentParser for configuring binexpect."""
+                 ignore_sighup=True, gdb=None, tty=None, writeback=None):
+        """
+        Set-up the argparse.ArgumentParser for configuring binexpect.
 
-        # TODO: Document arguments, add docstring.
+        Args:
+            command (str): the target command to run later.
+            args ([str]): Target command and arguments to be run.
+            timeout (int): default timeout for reading or writing.
+            maxread (int): default maximum read buffer size.
+            searchwindowsize (int): how far back pexpect searches.
+            logfile (file): all I/O will be logged to this file.
+            cwd (str): set current working directory for target.
+            env ([str]): set environ for target.
+            ignore_sighup (bool): whether to ignore SIGHUP signal.
+            gdb (bool): Whether to attach gdb.
+            tty (bool): Whether to spawn a tty.
+
+        """
 
         self.parser = argparse.ArgumentParser()
 
         options = self.parser.add_argument_group('binexpect options')
 
-        options.set_defaults(command=command, args=args)
+        options.set_defaults(command=command)  # Set default command.
+        self._default_args = args  # argparse.REMAINDER doesn't have dflts.
 
         action = options.add_mutually_exclusive_group()
         action.add_argument(
-            "-t", "--tty", action="store_true",
+            "-t", "--tty", action="store_true", default=tty,
             help="""
             Spawn and interact with a new TTY instead of spawning the process.
             """
         )
         action.add_argument(
-            "-g", "--gdb", action="store_true",
+            "-g", "--gdb", action="store_true", default=gdb,
             help="""
             Spawn a new new terminal running a gdb instance on the target.
             """
@@ -132,31 +145,48 @@ class setup(object):  # NOQA: N801
             """
         )
         options.add_argument(
-            "--writeback",
+            "--writeback", default=writeback,
             help="""
             If a TTY is opened its name and the target's arguments will be
             written to this file. This is mainly for interfacing with debugers.
             """
         )
 
-    def target(self, *args):
+    def _finish_setup(self):
+
+        # argparse.REMAINDER doesn't handle defaults, do this
+        # manually with a custom action.
+        default_args = self._default_args
+
+        class AddDefaultArgs(argparse.Action):
+            """Add default args if none were passed."""
+
+            def __call__(self, parser, namespace,
+                         values, option_string=None):
+                if not values and default_args:
+                    values = default_args[:]
+                setattr(namespace, self.dest, values)
+
+        # Those options must be added at the last moment
+        # because they take the remaining arguments.
+        self.parser.add_argument("command", nargs="?")
+        self.parser.add_argument("args", nargs=argparse.REMAINDER,
+                                 action=AddDefaultArgs)
+
+    def target(self, args=None):
         """
-        Run the target according to arguments parsed using  self.parser.
+        Run the target according to arguments parsed using self.parser.
 
         Args:
-            *args: Target command and arguments to be run.
+            args ([str]): args to parse. The default is taken from sys.argv.
 
         Returns:
             target
 
         """
 
-        # Those options must be added at the last moment
-        # because they take the remaining arguments.
-        self.parser.add_argument("command", nargs="?")
-        self.parser.add_argument("args", nargs=argparse.REMAINDER)
-
-        self.args = self.parser.parse_args(*args)
+        self._finish_setup()
+        self.args = self.parser.parse_args(args)
 
         if self.args.tty or self.args.gdb:
             target = ttyspawn(
@@ -191,3 +221,8 @@ class setup(object):  # NOQA: N801
 
         target.delaybeforesend = self.args.delay_before_send
         return target
+
+
+# this lets us do `target = binexpect.cli.setup()` which makes sense.
+# and this also keeps compatibility with older versions of binexpect.
+setup = Target

@@ -61,13 +61,10 @@ class BinMixin(object):
         according to the changes when it's needed.
         """
 
-        # TODO: Check if this code is still needed/relevant.
-        if mode[TLIST.OFLAG] & termios.ONLCR:
-            self.crlf = pexpect.spawn.crlf
-        else:
-            self.crlf = pexpect.spawn.crlf[-1]
-
-            termios.tcsetattr(fd, when, mode)
+        # At the moment there is no monkey patching to be done.
+        # We keep this method because it's a useful place to
+        # inspect and change the underling behavior.
+        termios.tcsetattr(fd, when, mode)
 
     @contextlib.contextmanager
     def changemode(self, when=termios.TCSADRAIN):
@@ -249,7 +246,8 @@ class PromptMixin(object):
 
     def tryexpect(self, pattern, timeout=None, searchwindowsize=None,
                   exitwithprogram=True):
-        """Proxy expect with basic error handling.
+        """
+        Proxy expect with basic error handling.
 
         Prompts when an expected pattern wasn't received before timeout.
 
